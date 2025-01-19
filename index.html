@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Forecast App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 font-sans">
+    <div class="max-w-4xl mx-auto p-4">
+        <header class="text-center py-4">
+            <h1 class="text-2xl font-bold text-blue-600">Weather Forecast Application</h1>
+            <p class="text-gray-600">Get the latest weather updates for any city!</p>
+        </header>
+
+        <main>
+            <!-- Search Section -->
+            <div class="bg-white shadow rounded p-4 mb-6">
+                <form id="searchForm" class="flex gap-2">
+                    <input id="cityInput" type="text" placeholder="Enter city name" class="w-full border px-4 py-2 rounded">
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Search</button>
+                </form>
+                <div id="recentSearches" class="mt-4">
+                    <!-- Recent searches dropdown -->
+                </div>
+            </div>
+
+            <!-- Current Weather Section -->
+            <div id="currentWeather" class="hidden bg-white shadow rounded p-4 mb-6">
+                <h2 class="text-xl font-bold mb-2">Current Weather</h2>
+                <div id="currentWeatherDetails" class="text-gray-700">
+                    <!-- Dynamic weather content -->
+                </div>
+            </div>
+
+            <!-- Extended Forecast Section -->
+            <div id="extendedForecast" class="hidden bg-white shadow rounded p-4">
+                <h2 class="text-xl font-bold mb-2">5-Day Forecast</h2>
+                <div id="forecastContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <!-- Dynamic forecast content -->
+                </div>
+            </div>
+        </main>
+
+        <footer class="text-center mt-6 text-gray-500">
+            &copy; 2025 Weather Forecast App
+        </footer>
+    </div>
+
+    <script>
+        const apiKey = 'Your_API_KEY'; // Replace with your weather API key
+        const apiBaseUrl = 'https://api.openweathermap.org/data/2.5/';
+
+        const searchForm = document.getElementById('searchForm');
+        const cityInput = document.getElementById('cityInput');
+        const recentSearches = document.getElementById('recentSearches');
+        const currentWeather = document.getElementById('currentWeather');
+        const currentWeatherDetails = document.getElementById('currentWeatherDetails');
+        const extendedForecast = document.getElementById('extendedForecast');
+        const forecastContainer = document.getElementById('forecastContainer');
+
+        let recentCities = JSON.parse(localStorage.getItem('recentCities')) || [];
+
+        function updateRecentSearches() {
+            recentSearches.innerHTML = '';
+            if (recentCities.length > 0) {
+                const dropdown = document.createElement('select');
+                dropdown.className = 'border px-4 py-2 rounded';
+                dropdown.addEventListener('change', (e) => {
+                    fetchWeather(e.target.value);
+                });
+                dropdown.innerHTML = '<option value="">Select recent city</option>' +
+                    recentCities.map(city => `<option value="${city}">${city}</option>`).join('');
+                recentSearches.appendChild(dropdown);
+            }
+        }
+
+        function fetchWeather(city) {
+            if (!city) return;
+
+            fetch(`${apiBaseUrl}weather?q=${city}&appid=${apiKey}&units=metric`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.cod !== 200) throw new Error(data.message);
+                    displayCurrentWeather(data);
+                    fetchExtendedForecast(data.coord.lat, data.coord.lon);
+
+                    if (!recentCities.includes(city)) {
+                        recentCities.push(city);
+                        localStorage.setItem('recentCities', JSON.stringify(recentCities));
+                        updateRecentSearches();
+                    }
+                })
+                .catch(error => {
+                    alert(`Error: ${error.message}`);
+                });
+        }
+
+        function fetchExtendedForecast(lat, lon) {
+            fetch(`${apiBaseUrl}forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`)
+                .then(response => response.json())
+                .then(data => {
+                    displayExtendedForecast(data);
+                })
+                .catch(error => {
+                    alert(`Error: ${error.message}`);
+                });
+        }
+
+        function displayCurrentWeather(data) {
+            currentWeather.classList.remove('hidden');
+            currentWeatherDetails.innerHTML = `
+                <p><strong>City:</strong> ${data.name}</p>
+                <p><strong>Temperature:</strong> ${data.main.temp}&deg;C</p>
+                <p><strong>Humidity:</strong> ${data.main.humidity}%</p>
+                <p><strong>Weather:</strong> ${data.weather[0].description}</p>
+                <img src="https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png" alt="${data.weather[0].description}">
+            `;
+        }
+
+        function displayExtendedForecast(data) {
+            extendedForecast.classList.remove('hidden');
+            forecastContainer.innerHTML = '';
+
+            const dailyForecasts = data.list.filter((_, index) => index % 8 === 0);
+            dailyForecasts.forEach(forecast => {
+                const date = new Date(forecast.dt_txt).toLocaleDateString();
+                forecastContainer.innerHTML += `
+                    <div class="p-4 bg-gray-100 rounded shadow">
+                        <p><strong>${date}</strong></p>
+                        <img src="https://openweathermap.org/img/wn/${forecast.weather[0].icon}@2x.png" alt="${forecast.weather[0].description}">
+                        <p>${forecast.weather[0].description}</p>
+                        <p><strong>Temp:</strong> ${forecast.main.temp}&deg;C</p>
+                        <p><strong>Wind:</strong> ${forecast.wind.speed} m/s</p>
+                        <p><strong>Humidity:</strong> ${forecast.main.humidity}%</p>
+                    </div>
+                `;
+            });
+        }
+
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const city = cityInput.value.trim();
+            if (city) {
+                fetchWeather(city);
+                cityInput.value = '';
+            } else {
+                alert('Please enter a city name!');
+            }
+        });
+
+        updateRecentSearches();
+    </script>
+</body>
+
+</html>
